@@ -233,11 +233,12 @@ def mouse_callback(event, x, y, flags, param):
 pipeline = Gst.parse_launch("appsrc name=src is-live=true format=time do-timestamp=false ! video/x-raw,format=UYVY,height=460,width=800,framerate=9/1 ! videoconvert ! x264enc tune=zerolatency ! qtmux ! filesink location=testing_thermal_capture.mp4")
 appsrc = pipeline.get_by_name("src")
 record_timestamp = 0
+fps = 9
+frame_duration = Gst.util_uint64_scale_int(1, Gst.SECOND, fps)
 def main():
 	global last_click_pos, last_click_temp, last_click_time, thermal_data, current_colormap, should_exit
 	global should_record, recording
-	global pipeline
-	global record_timestamp
+	global pipeline, appsrc, record_timestamp, fps, frame_duration
 	create_directories()
 	last_save_time = time.time()
 
@@ -349,10 +350,8 @@ def main():
 						colorbar = cv2.resize(colorbar, (colorbar.shape[1], img.shape[0]))
 
 					display_img = np.hstack((img, colorbar))
-					
-					fps = 9
-					frame_duration = Gst.util_uint64_scale_int(1, Gst.SECOND, fps)
-					if recording:
+						
+					if should_record and recording is True:
 						frame = display_img
 						data = frame.tobytes()
 						buf = Gst.Buffer.new_allocate(None, len(data), None)
@@ -366,16 +365,6 @@ def main():
 						
 						appsrc.emit("push-buffer", buf)
 						
-					if should_record and recording is True:
-						#pipeline = (f"v4l2src device=/dev/video0 ! video/x-raw,format=UYVY ! videoconvert ! x264enc tune=zerolatency ! qtmux ! appsink name=thermal_capture_testcv2.mp4")
-						'''
-						pipeline = ["sudo", "gst-launch-1.0", "-e", "v4l2src", "device=/dev/video0", "!", "video/x-raw,format=UYVY", "!", "videoconvert", "!", "x264enc", "tune=zerolatency", "!", "qtmux", "!", "filesink"]
-						filename = f"thermal_clip_{video_counter}.mp4"
-						current_pipeline = pipeline + [f"location={filename}"]
-						'''
-						#cap = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
-						
-						
 						pipeline.set_state(Gst.State.PLAYING)
 						ret = pipeline.set_state(Gst.State.PLAYING)
 						if ret == Gst.StateChangeReturn.FAILURE:
@@ -388,16 +377,12 @@ def main():
 								print({debug})
 						print(ret)
 						
-						
-						
-						#recording_process = subprocess.Popen(current_pipeline)
 						video_counter += 1
 						recording = False
 						cv2.putText(img,"RECORD PRESSED",(0,0),cv2.FONT_HERSHEY_SIMPLEX,1.0,(0,255,0),1)
 						print("RECORDING")
 					elif not should_record and recording is False:
 						
-						#pipeline.send_event(Gst.Event.new_eos())
 						appsrc.emit("end-of-stream")
 						bus = pipeline.get_bus()
 						while True:
@@ -412,14 +397,7 @@ def main():
 						
 						pipeline.set_state(Gst.State.NULL)
 						print("recording saved")
-						'''
-						recording_process.terminate()
-						recording_process.wait()
-						recording_process = None'
-						'''
 						recording = True
-						
-						
 						
 						cv2.putText(img,"RECORD UNPRESSED",(0,0),cv2.FONT_HERSHEY_SIMPLEX,1.0,(0,255,0),1)
 						print("STOPPED RECORDING")
@@ -438,6 +416,8 @@ def main():
 					cv2.waitKey(1)
 
 					current_time = time.time()
+					# the commented block below saves the thermal data every 30 seconds
+					# but it is currently disabled to avoid cluttering the directories with too many files.
 					'''
 					if (current_time - last_save_time) >= 30:
 						timestamp = time.strftime("%Y%m%d_%H%M%S")
