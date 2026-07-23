@@ -36,7 +36,7 @@ class DisplayConfig:
 			'bottom': self.taskbar_height
 		}
 		self.font_scale_multiplier = 2
-		self.update_resolution()
+		self.update_resolution()	
 
 	def update_resolution(self):
 		"""Get actual resolution using xrandr (Linux-only)."""
@@ -356,7 +356,7 @@ def main():
 					if should_record and not recording:
 						pipeline.set_state(Gst.State.PLAYING)
 						record_timestamp = 0
-						recording = True 
+						 
 						print("Recording")
 						ret = pipeline.set_state(Gst.State.PLAYING)
 						if ret == Gst.StateChangeReturn.FAILURE:
@@ -368,6 +368,7 @@ def main():
 								print({err.message})
 								print({debug})
 						print(ret)
+						recording = True
 
 					if recording is True:
 						#frame = display2
