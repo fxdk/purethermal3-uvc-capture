@@ -200,8 +200,9 @@ last_click_time = None
 thermal_data = None
 should_exit = False
 should_record = False
+recording = False
 def mouse_callback(event, x, y, flags, param):
-	global should_record
+	global should_record, recording
 	global last_click_pos, last_click_temp, last_click_time, should_exit
 	thermal_img_width = int(display.display_width * THERMAL_WIDTH_RATIO)
 	
@@ -229,8 +230,10 @@ def mouse_callback(event, x, y, flags, param):
 			elif (y <= 30):
 				print("Record Button Clicked")
 				should_record = not should_record
-			
-pipeline = Gst.parse_launch("appsrc name=src is-live=true format=time do-timestamp=false ! video/x-raw,format=UYVY,height=460,width=800,framerate=9/1 ! videoconvert ! x264enc tune=zerolatency ! qtmux ! filesink location=testing_thermal_capture.mp4")
+				recording = True
+
+#record command
+pipeline = Gst.parse_launch("appsrc name=src is-live=true format=time do-timestamp=false ! video/x-raw,format=BGR,height=360,width=480,framerate=9/1 ! videoconvert ! x264enc tune=zerolatency ! qtmux ! filesink location=testing_thermal_capture.mp4")
 appsrc = pipeline.get_by_name("src")
 record_timestamp = 0
 fps = 9
@@ -299,7 +302,6 @@ def main():
 				len(colormap_names) - 1,
 				lambda x: None
 			)
-			recording = True
 			video_counter = 0
 			
 
@@ -350,9 +352,13 @@ def main():
 						colorbar = cv2.resize(colorbar, (colorbar.shape[1], img.shape[0]))
 
 					display_img = np.hstack((img, colorbar))
-						
-					if should_record and recording is True:
-						frame = display_img
+					display2 = np.hstack(img)
+					if recording is True:
+						#frame = display2
+						frame = display_img[:360,:480]
+						frame = np.ascontiguousarray(frame,dtype=np.uint8)
+						print("shape", frame.shape)
+						print(frame.nbytes)
 						data = frame.tobytes()
 						buf = Gst.Buffer.new_allocate(None, len(data), None)
 						buf.fill(0, data)
@@ -364,6 +370,8 @@ def main():
 						record_timestamp += frame_duration
 						
 						appsrc.emit("push-buffer", buf)
+						
+					if should_record and recording is True:
 						
 						pipeline.set_state(Gst.State.PLAYING)
 						ret = pipeline.set_state(Gst.State.PLAYING)
@@ -378,7 +386,6 @@ def main():
 						print(ret)
 						
 						video_counter += 1
-						recording = False
 						cv2.putText(img,"RECORD PRESSED",(0,0),cv2.FONT_HERSHEY_SIMPLEX,1.0,(0,255,0),1)
 						print("RECORDING")
 					elif not should_record and recording is False:
@@ -397,8 +404,8 @@ def main():
 						
 						pipeline.set_state(Gst.State.NULL)
 						print("recording saved")
-						recording = True
-						
+						recording = False
+											
 						cv2.putText(img,"RECORD UNPRESSED",(0,0),cv2.FONT_HERSHEY_SIMPLEX,1.0,(0,255,0),1)
 						print("STOPPED RECORDING")
 						break
@@ -416,8 +423,6 @@ def main():
 					cv2.waitKey(1)
 
 					current_time = time.time()
-					# the commented block below saves the thermal data every 30 seconds
-					# but it is currently disabled to avoid cluttering the directories with too many files.
 					'''
 					if (current_time - last_save_time) >= 30:
 						timestamp = time.strftime("%Y%m%d_%H%M%S")
