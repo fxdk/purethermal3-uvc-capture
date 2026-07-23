@@ -230,7 +230,6 @@ def mouse_callback(event, x, y, flags, param):
 			elif (y <= 30):
 				print("Record Button Clicked")
 				should_record = not should_record
-				recording = True
 
 #record command
 pipeline = Gst.parse_launch("appsrc name=src is-live=true format=time do-timestamp=false ! video/x-raw,format=BGR,height=360,width=480,framerate=9/1 ! videoconvert ! x264enc tune=zerolatency ! qtmux ! filesink location=testing_thermal_capture.mp4")
@@ -353,10 +352,18 @@ def main():
 
 					display_img = np.hstack((img, colorbar))
 					display2 = np.hstack(img)
+
+					if should_record and not recording:
+						pipeline.set_state(Gst.State.PLAYING)
+						record_timestamp = 0
+						recording = True 
+						print("Recording")
+
 					if recording is True:
 						#frame = display2
 						frame = display_img[:360,:480]
 						frame = np.ascontiguousarray(frame,dtype=np.uint8)
+
 						print("shape", frame.shape)
 						print(frame.nbytes)
 						data = frame.tobytes()
@@ -370,7 +377,7 @@ def main():
 						record_timestamp += frame_duration
 						
 						appsrc.emit("push-buffer", buf)
-						
+					'''
 					if should_record and recording is True:
 						
 						pipeline.set_state(Gst.State.PLAYING)
@@ -388,7 +395,8 @@ def main():
 						video_counter += 1
 						cv2.putText(img,"RECORD PRESSED",(0,0),cv2.FONT_HERSHEY_SIMPLEX,1.0,(0,255,0),1)
 						print("RECORDING")
-					elif not should_record and recording is False:
+					'''
+					if not should_record and recording:
 						
 						appsrc.emit("end-of-stream")
 						bus = pipeline.get_bus()
