@@ -358,6 +358,16 @@ def main():
 						record_timestamp = 0
 						recording = True 
 						print("Recording")
+						ret = pipeline.set_state(Gst.State.PLAYING)
+						if ret == Gst.StateChangeReturn.FAILURE:
+							print("failed")
+							bus = pipeline.get_bus()
+							msg = bus.pop_filtered(Gst.MessageType.ERROR)
+							if msg:
+								err, debug = msg.parse_error()
+								print({err.message})
+								print({debug})
+						print(ret)
 
 					if recording is True:
 						#frame = display2
